@@ -1,0 +1,15 @@
+# 把 game.example.com 换成你的域名；DNS A 记录指向 VPS
+# Caddy 会自动申请 HTTPS
+game.example.com {
+	encode gzip
+
+	# SSE 必须关闭缓冲/立即 flush
+	reverse_proxy 127.0.0.1:8788 {
+		flush_interval -1
+	}
+
+	# 如果只想让好友进，可以打开 basic auth（Caddy 会提示输入）
+	# basic_auth {
+	# 	friend $2a$14$REPLACE_WITH_BCRYPT_HASH
+	# }
+}

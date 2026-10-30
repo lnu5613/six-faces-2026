@@ -1,0 +1,22 @@
+# 改成一个全局唯一的 app 名，再 fly deploy
+app = "six-faces-change-me"
+primary_region = "hkg"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  PORT = "8788"
+
+[http_service]
+  internal_port = 8788
+  force_https = true
+  auto_stop_machines = false
+  auto_start_machines = true
+  min_machines_running = 1
+  processes = ["app"]
+
+[[vm]]
+  cpu_kind = "shared"
+  cpus = 1
+  memory = "256mb"

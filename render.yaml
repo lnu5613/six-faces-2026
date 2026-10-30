@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: six-faces
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    # 免费套餐：15 分钟无请求会休眠；用 UptimeRobot 定时 ping /api/health 保活
+    # Render 会自动注入 PORT，不要在 envVars 里写死 8788
+    plan: free
+    healthCheckPath: /api/health
+    autoDeploy: true

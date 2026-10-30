@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>六面 · 联机试玩</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  .player.me{box-shadow:0 0 0 1px var(--blue),0 0 22px rgba(90,169,230,.14)}
+  .lobby-code{font-size:34px;letter-spacing:8px;color:var(--gold);text-align:center;margin:8px 0 12px;font-weight:800}
+  .conn-ok{color:var(--green)}
+  .conn-bad{color:var(--red)}
+  .timer-hot{color:var(--red)}
+  .toast{
+    position:fixed;left:50%;bottom:22px;transform:translateX(-50%) translateY(10px);
+    background:#2a1f14;border:1px solid #6a4a1f;color:#f0c16a;
+    padding:8px 14px;border-radius:10px;z-index:99;font-size:12px;
+    opacity:0;transition:.2s;pointer-events:none;max-width:90vw;
+  }
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  .lobby-list{display:flex;flex-direction:column;gap:6px;margin:12px 0}
+  .lobby-row{display:flex;align-items:center;gap:8px;background:#121620;border:1px solid #2a3040;border-radius:9px;padding:8px 10px;font-size:13px}
+  .lobby-row .dot{width:8px;height:8px;border-radius:50%;background:#555}
+  .lobby-row .dot.on{background:var(--green)}
+  .lobby-row .host{margin-left:auto;font-size:10px;color:var(--gold);border:1px solid #5a4520;padding:1px 6px;border-radius:999px}
+  .room-input{text-transform:uppercase;letter-spacing:3px;text-align:center}
+</style>
+</head>
+<body>
+
+<!-- 大厅：创建/加入 -->
+<div id="lobby" class="overlay">
+  <div class="modal">
+    <h2>六面 · 联机试玩</h2>
+    <p>2~6 人，4 位房间码，30 秒回合计时。创建房间后把码发给朋友；本机测试可以开多个浏览器标签。</p>
+
+    <div class="name-inputs">
+      <input id="playerName" maxlength="12" placeholder="你的名字">
+    </div>
+
+    <button id="createBtn" class="primary" style="width:100%;padding:12px">创建房间</button>
+
+    <div class="name-inputs" style="margin-top:12px">
+      <input id="roomCode" class="room-input" maxlength="4" placeholder="房间码">
+      <button id="joinBtn">加入房间</button>
+    </div>
+
+    <p id="lobbyMsg" class="hint"></p>
+  </div>
+</div>
+
+<!-- 房间等待 -->
+<div id="waiting" class="overlay hidden">
+  <div class="modal">
+    <h2 style="text-align:center">房间</h2>
+    <div id="roomCodeLabel" class="lobby-code">----</div>
+    <p style="text-align:center">把房间码发给朋友；至少 2 人，房主开始。</p>
+
+    <div id="lobbyPlayers" class="lobby-list"></div>
+
+    <button id="startBtn" class="primary" style="width:100%;padding:12px">开始游戏</button>
+    <p id="waitMsg" class="hint" style="text-align:center"></p>
+
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <button id="copyBtn" style="flex:1">复制邀请链接</button>
+      <button id="leaveBtn" style="flex:1">离开</button>
+    </div>
+  </div>
+</div>
+
+<!-- 游戏 -->
+<div id="gameApp" class="app hidden">
+  <header class="topbar">
+    <div class="brand">
+      <div class="die-logo">⚄</div>
+      <div>
+        <h1>六面</h1>
+        <p>联机试玩 · 2~6 人</p>
+      </div>
+    </div>
+    <div class="statusbar">
+      <span class="pill" id="roundLabel">第 1 轮</span>
+      <span class="pill" id="turnLabel">等待</span>
+      <span class="pill" id="timerLabel">—</span>
+      <span class="pill gold hidden" id="danceLabel">最后一舞</span>
+      <span class="pill" id="connLabel">连接中</span>
+    </div>
+    <div class="top-actions">
+      <button id="rulesBtn">规则</button>
+      <button id="leaveGameBtn">离开</button>
+    </div>
+  </header>
+
+  <main class="board">
+    <section id="players" class="players"></section>
+
+    <section class="center">
+      <div class="dice-panel">
+        <div id="die" class="die">?</div>
+        <div class="dice-info">
+          <div class="die-label">行动骰</div>
+          <div class="die-name" id="dieName">等待</div>
+          <p class="prompt" id="prompt">等待其他玩家…</p>
+          <div class="actions" id="actions"></div>
+        </div>
+      </div>
+
+      <div class="log-panel">
+        <div class="log-head"><span>战报</span><span id="logCount">(0)</span></div>
+        <div id="log" class="log"></div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <span>服务器权威 · 客户端只发意图 · 超时自动行动</span>
+    <span id="roomFoot"></span>
+  </footer>
+</div>
+
+<!-- 规则 -->
+<div id="rules" class="overlay hidden">
+  <div class="modal">
+    <div class="modal-head">
+      <h2>试玩版规则</h2>
+      <button id="closeRules">关闭</button>
+    </div>
+    <div class="rules-body">
+      <h3>回合五步</h3>
+      <ol>
+        <li>回合开始：毒跳伤、再生回血、冷却 -1。</li>
+        <li>掷 1d6，结算对应面。</li>
+        <li>选目标；最后一舞可用闪避。</li>
+        <li>自由行动：刃 / 电回血 / 神之刃 / 猎枪。</li>
+        <li>结束回合。第 7 轮起血月：伤害 +1、治疗 -1。</li>
+      </ol>
+
+      <h3>六面</h3>
+      <table>
+        <tr><th>面</th><th>效果</th></tr>
+        <tr><td>1 毒</td><td>3 回合，每回合 1d3；药师可致命 +1。</td></tr>
+        <tr><td>2 霰弹</td><td>1d6；≥4 或猎人溅射 2 给一个相邻；50% 眩晕；结束回合。</td></tr>
+        <tr><td>3 金</td><td>偶数回 5；奇数对下家 5 伤；药师改为再生。</td></tr>
+        <tr><td>4 电</td><td>+1 电，选 2 伤或回 2；3 电引爆 8 伤 AOE + 回 6 + 禁疗 3。</td></tr>
+        <tr><td>5 刃</td><td>获得 1 刃（最多 3），4 伤；猎人变 3 伤溅射枪。</td></tr>
+        <tr><td>6 随机</td><td>4d6 改 HP；自己 ≤5 时改吸血。</td></tr>
+      </table>
+
+      <h3>六身份</h3>
+      <table>
+        <tr><th>身份</th><th>被动</th></tr>
+        <tr><td>药师</td><td>毒可致命 +1；面 3 再生。</td></tr>
+        <tr><td>猎人</td><td>面 5 变枪；每 4 回合 2 伤枪；50% 眩晕。</td></tr>
+        <tr><td>赌徒</td><td>伤害/回复 2/3 概率 +2。</td></tr>
+        <tr><td>机器人</td><td>面 3→4；得电回 2；1 次拼点；2 电复活。</td></tr>
+        <tr><td>剑圣</td><td>每 5 回合神之刃 3+3×刃；霰弹 +2。</td></tr>
+        <tr><td>随机生成器</td><td>4d6+6 HP；首次死亡 3d6 复活；2 次拼点；回 1d6（CD3）。</td></tr>
+      </table>
+
+      <h3>血月与最后一舞</h3>
+      <ul>
+        <li>第 7 轮起：所有伤害 +1，所有治疗 -1。</li>
+        <li>剩 2 人：双方 10 HP、1 闪避、清空装备、不再复活；最多 3 轮，超时 HP 高者胜。</li>
+        <li>2 人局没有最后一舞：开局只有 2 人时，直接打到死。</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script src="online.js"></script>
+</body>
+</html>
